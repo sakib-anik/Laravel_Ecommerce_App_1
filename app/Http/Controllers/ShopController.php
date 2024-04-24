@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
-use App\Models\Category;
 use App\Models\Product;
+use App\Models\Category;
+use App\Models\ProductRating;
 use App\Models\SubCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class ShopController extends Controller
 {
@@ -15,7 +17,7 @@ class ShopController extends Controller
         $subCategorySelected = '';
         $brandsArray = [];
 
-        
+
 
         $categories = Category::orderBy('name','ASC')->with('sub_category')->where('status',1)->get();
         $brands = Brand::orderBy('name','ASC')->where('status',1)->get();
@@ -27,14 +29,14 @@ class ShopController extends Controller
         if(!empty($categorySlug)){
             $category = Category::where('slug',$categorySlug)->first(); // karon product table a category_id ase
             $products = $products->where('category_id',$category->id);
-            $categorySelected = $category->id;         
+            $categorySelected = $category->id;
 
         }
 
         if(!empty($subCategorySlug)){
             $subCategory = SubCategory::where('slug',$subCategorySlug)->first(); // karon product table a sub_category_id ase
             $products = $products->where('sub_category_id',$subCategory->id);
-            $subCategorySelected = $subCategory->id;         
+            $subCategorySelected = $subCategory->id;
         }
 
         if(!empty($request->get('brand'))){         // will fetch data from brand in querystring
@@ -54,7 +56,7 @@ class ShopController extends Controller
             $products = $products->where('title','like','%'.$request->get('search').'%');
 
         }
-        
+
         if($request->get('sort') != ''){
             if($request->get('sort') == 'latest'){
                 $products = $products->orderBy('id','DESC');
@@ -69,16 +71,16 @@ class ShopController extends Controller
         }
 
         $products = $products->paginate(6);
-        
+
         $data['categories'] = $categories;
         $data['brands'] = $brands;
         $data['products'] = $products;
         $data['categorySelected'] = $categorySelected;
         $data['subCategorySelected'] = $subCategorySelected;
         $data['brandsArray'] = $brandsArray;    // it will help to show which brands are selected
-        $data['priceMax'] = (intval($request->get('price_max')) == 0) ? 1000 : $request->get('price_max');    
-        $data['priceMin'] = intval($request->get('price_min'));    
-        $data['sort'] = $request->get('sort');    
+        $data['priceMax'] = (intval($request->get('price_max')) == 0) ? 1000 : $request->get('price_max');
+        $data['priceMin'] = intval($request->get('price_min'));
+        $data['sort'] = $request->get('sort');
 
         return view('front.shop',$data);
     }
@@ -86,13 +88,13 @@ class ShopController extends Controller
     // This method will show product page
     public function product($slug){
         // echo $slug;
-        $product = Product::where('slug',$slug)->with('product_images')->first();
-
+        $product = Product::where('slug',$slug)->withCount('product_ratings')->withSum('product_ratings','rating')->with(['product_images','product_ratings'])->first();
+        // dd($product);
         if($product == null){
             abort(404);
         }
 
-        
+
         $relatedProducts = [];
         // fetch related products
         if($product->related_products != ''){
@@ -100,10 +102,59 @@ class ShopController extends Controller
             $relatedProducts = Product::whereIn('id',$productArray)->where('status',1)->get();
                                     //  accept array as an argument
         }
-        
+
+        // Rating Calculation
+        $avgRating = '0.00';
+        $avgRatingPer = 0;
+        if($product->product_ratings_count > 0){
+            $avgRating = number_format(($product->product_ratings_sum_rating/$product->product_ratings_count),2);
+            $avgRatingPer = ($avgRating*100)/5;
+        }
         $data['product'] = $product;
         $data['relatedProducts'] = $relatedProducts;
+        $data['avgRating'] = $avgRating;
+        $data['avgRatingPer'] = $avgRatingPer;
 
         return view('front.product',$data);
+    }
+
+    public function saveRating($id,Request $request){
+        $validator = Validator::make($request->all(),[
+            'name' => 'required|min:5',
+            'email' => 'required|email',
+            'comment' => 'required|min:10',
+            'rating' => 'required'
+        ]);
+
+        if($validator->fails()){
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()
+            ]);
+        }
+
+        $countRating = ProductRating::where('email',$request->email)->count();
+        if($countRating > 0){
+            session()->flash('error','You have already rated this product.');
+            return response()->json([
+                'status' => true,
+            ]);
+        }
+
+        $productRating = new ProductRating;
+        $productRating->product_id = $id;
+        $productRating->username = $request->name;
+        $productRating->email = $request->email;
+        $productRating->comment = $request->comment;
+        $productRating->rating = $request->rating;
+        $productRating->status = 0;
+        $productRating->save();
+
+        session()->flash('success','Thanks for your rating.');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Thanks for your rating.'
+        ]);
     }
 }

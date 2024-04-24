@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers\admin;
 
-use App\Http\Controllers\Controller;
+use Image;
 use App\Models\Brand;
-use App\Models\Category;
 use App\Models\Product;
-use App\Models\ProductImage;
-use App\Models\SubCategory;
+use App\Models\Category;
 use App\Models\TempImage;
+use App\Models\SubCategory;
+use App\Models\ProductImage;
 use Illuminate\Http\Request;
+use App\Models\ProductRating;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
-use Image;
+
 class ProductController extends Controller
 {
     // for listing products
@@ -112,12 +114,12 @@ class ProductController extends Controller
                     // $image = Image::make($sourcePath); // used by youtuber
                     // $image->fit(300,300);   // small image thumbnail will be fixed size
                     File::copy($sourcePath,$destPath);
-                    
-                    
+
+
                     //$image->save($destPath);
                 }
             }
-            
+
             $request->session()->flash('success','Product added successfully.');
 
             return response()->json([
@@ -135,12 +137,12 @@ class ProductController extends Controller
     // for showing product edit form
     public function edit($id, Request $request){
         $product = Product::find($id);
-        
+
         if(empty($product)){
             // $request->session()->flash('error','Product not found');
             return redirect()->route('products.index')->with('error','Product not found');
         }                                             // use this instead of session method
-        
+
         // Fetch Product Images
         $productImages = ProductImage::where('product_id',$product->id)->get();
 
@@ -168,7 +170,7 @@ class ProductController extends Controller
     public function update($id,Request $request){
         $product = Product::find($id);
 
-        
+
         $rules = [
             'title' => 'required',
             'price' => 'required|numeric',
@@ -217,7 +219,7 @@ class ProductController extends Controller
             ]);
         }
     }
-    // for deleting product 
+    // for deleting product
     public function destroy($id,Request $request){
         $product = Product::find($id);
         if(empty($product)){
@@ -234,7 +236,7 @@ class ProductController extends Controller
             foreach ($productImages as $productImage) {
                 File::delete(public_path('uploads/product/large/'.$productImage->image));
                 File::delete(public_path('uploads/product/small/'.$productImage->image));
-            }   
+            }
 
             ProductImage::where('product_id',$id)->delete();
 
@@ -253,7 +255,7 @@ class ProductController extends Controller
     }
 
     public function getProducts(Request $request){
-        
+
         $tempProduct = [];
         if($request->term != ""){
             $products = Product::where('title','like','%'.$request->term.'%')->get();
@@ -274,5 +276,28 @@ class ProductController extends Controller
             'status' => true
         ]);
 
+    }
+
+    public function productRatings(Request $request){
+        $ratings = ProductRating::select('product_ratings.*','products.title as productTitle')->orderBy('created_at','DESC');
+        $ratings = $ratings->leftJoin('products','products.id','product_ratings.product_id');
+        if($request->get('keyword') != ''){
+            $ratings = $ratings->orWhere('products.title','like','%'.$request->keyword.'%');
+            $ratings = $ratings->orWhere('product_ratings.username','like','%'.$request->keyword.'%');
+        }
+        $ratings = $ratings->paginate(10);
+        return view('admin.products.ratings',compact('ratings'));
+    }
+
+    public function changeRatingStatus(Request $request){
+        $productRating = ProductRating::find($request->id);
+        $productRating->status = $request->status;
+        $productRating->save();
+
+        session()->flash('success', 'Status change successfully.');
+
+        return response()->json([
+            'status' => true,
+        ]);
     }
 }

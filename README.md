@@ -1,3 +1,27 @@
+This is an E-commerce Web App Built with Laravel.
+
+The feautures of this project:
+- Admin & User Authentication & Authorization
+- Add to cart
+- Add to wishlist
+- Admin Profile
+- User Profile
+- Payment System
+- etc. that are required in an e-commerce site
+
+The technologies that I have implemented are:
+- HTML5
+- CSS3
+- BOOTSTRAP 5.1
+- JavaScript
+- JQuery
+- AJAX
+- Laravel
+
+I am continuously upgrading and updating this project.
+
+Stay Tuned. ;-) 
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
